@@ -1,0 +1,75 @@
+domain: {{ .StateValues.deploy.DOMAIN }}
+redirect_domains: {{ .StateValues.deploy.REDIRECT_DOMAINS }}
+
+cert_manager:
+  issuer: {{ .Release.Name }}-letsencrypt-prod
+
+underMaintenance: false
+
+global:
+  image:
+    tag: {{ .StateValues.deploy.IMAGE_TAG }}
+    pullPolicy: Always
+
+backend:
+  image:
+    repository:  ghcr.io/{{ .StateValues.deploy.GITHUB_REPOSITORY | lower }}/backend
+  env:
+    NEO4J_URI: "bolt://ocelot-neo4j-neo4j:7687"
+    PRODUCTION_DB_CLEAN_ALLOW: {{ .StateValues.ocelot.options.PRODUCTION_DB_CLEAN_ALLOW | quote }}
+    PUBLIC_REGISTRATION: {{ .StateValues.ocelot.options.PUBLIC_REGISTRATION | quote }}
+    INVITE_REGISTRATION: {{ .StateValues.ocelot.options.INVITE_REGISTRATION | quote }}
+    BADGES_ENABLED: {{ .StateValues.ocelot.options.BADGES_ENABLED | quote }}
+    CATEGORIES_ACTIVE: {{ .StateValues.ocelot.options.CATEGORIES_ACTIVE | quote }}
+    MAX_PINNED_POSTS: {{ .StateValues.ocelot.options.MAX_PINNED_POSTS | quote }}
+    MAX_GROUP_PINNED_POSTS: {{ .StateValues.ocelot.options.MAX_GROUP_PINNED_POSTS | quote }}
+    API_KEYS_ENABLED: {{ .StateValues.ocelot.options.API_KEYS_ENABLED | quote }}
+    API_KEYS_MAX_PER_USER: {{ .StateValues.ocelot.options.API_KEYS_MAX_PER_USER | quote }}
+    SHOW_CONTENT_FILTER_HEADER_MENU: {{ .StateValues.ocelot.options.SHOW_CONTENT_FILTER_HEADER_MENU | quote }}
+    SHOW_CONTENT_FILTER_MASONRY_GRID: {{ .StateValues.ocelot.options.SHOW_CONTENT_FILTER_MASONRY_GRID | quote }}
+    SHOW_GROUP_BUTTON_IN_HEADER: {{ .StateValues.ocelot.options.SHOW_GROUP_BUTTON_IN_HEADER | quote }}
+    ASK_FOR_REAL_NAME: {{ .StateValues.ocelot.options.ASK_FOR_REAL_NAME | quote }}
+    REQUIRE_LOCATION: {{ .StateValues.ocelot.options.REQUIRE_LOCATION | quote }}
+    SUPPORT_EMAIL: {{ .StateValues.ocelot.options.SUPPORT_EMAIL | quote }}
+    SUPPORT_LINK: {{ .StateValues.ocelot.options.SUPPORT_LINK | quote }}
+    ORGANIZATION_LINK: {{ .StateValues.ocelot.options.ORGANIZATION_LINK | quote }}
+    # The brand the network renders until an admin picks another one; the images hold every brand of
+    # brandings/. The maintenance page follows this value too (the chart folds it in).
+    OCELOT_ACTIVE_BRANDING: {{ .StateValues.ocelot.options.OCELOT_ACTIVE_BRANDING | quote }}
+
+webapp:
+  image:
+    repository: ghcr.io/{{ .StateValues.deploy.GITHUB_REPOSITORY | lower }}/webapp
+  env:
+    NETWORK_NAME: {{ .StateValues.ocelot.options.NETWORK_NAME | quote }}
+    OCELOT_ACTIVE_BRANDING: {{ .StateValues.ocelot.options.OCELOT_ACTIVE_BRANDING | quote }}
+
+maintenance:
+  image:
+    repository: ghcr.io/{{ .StateValues.deploy.GITHUB_REPOSITORY | lower }}/maintenance
+  env:
+    # Address the maintenance page shows. Fed by the same StateValue as backend.env.SUPPORT_EMAIL,
+    # so the page and the app cannot drift; the chart falls back to that value when this is unset.
+    SUPPORT_EMAIL: {{ .StateValues.ocelot.options.SUPPORT_EMAIL | quote }}
+
+neo4j:
+  image:
+    repository: ghcr.io/ocelot-social-community/ocelot-social/neo4j
+    tag: master
+  storage: {{ .StateValues.deploy.NEO4J_STORAGE | quote }}
+  storageBackups: "10Gi"
+  resources:
+    requests:
+      memory: "2Gi"
+    limits:
+      memory: "4Gi"
+
+# Credentials for pulling private images, taken from the sops-encrypted `ghcr` key in
+# `environments/*.secrets.yaml`. While that key is absent — the normal case, as long as every image
+# the instance pulls is public — this renders nothing and no pull Secret is created.
+{{- $pullCredentials := index .StateValues "ghcr" | default list }}
+{{- if $pullCredentials }}
+imagePullCredentials:
+  registries:
+{{ $pullCredentials | toYaml | indent 4 }}
+{{- end }}

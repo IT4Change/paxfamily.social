@@ -1,0 +1,28 @@
+/*
+ * paxfamily style overrides, served from the brand's assets folder and injected at runtime
+ * (branding.assets.css). The header is cream like pax.family's (--color-header-background), with a
+ * thin warm border below and the navigation in the violet of the logo; colours come from the runtime
+ * custom properties of theme.css.
+ */
+
+.main-navigation {
+  border-bottom: 1px solid var(--color-header-border);
+}
+.main-navigation a {
+  color: var(--color-primary);
+  font-weight: 500;
+}
+.main-navigation a:hover {
+  color: var(--color-primary-hover);
+}
+.main-navigation .router-link-exact-active {
+  color: var(--color-header-active) !important;
+}
+.main-navigation .locale-menu {
+  color: var(--color-primary);
+}
+
+/* avoid uppercase for user slug */
+span.slug {
+  text-transform: none;
+}

@@ -1,0 +1,42 @@
+/*
+ * pax-classic style overrides, served from the brand's assets folder and injected at runtime
+ * (branding.assets.css). The header is violet (--color-header-background), so its navigation is set
+ * light here; colours come from the runtime custom properties of theme.css.
+ */
+
+.main-navigation a {
+  color: #fff;
+  font-weight: 500;
+}
+.main-navigation a:hover {
+  color: hsla(0, 0%, 100%, 0.8);
+}
+.main-navigation .router-link-exact-active {
+  color: var(--color-secondary) !important;
+}
+.main-navigation .locale-menu {
+  color: #fff;
+}
+.main-navigation .os-button {
+  color: #fff !important;
+}
+
+/* Unread counters (chat, notifications): the framework's red clashes with the violet header, so
+   here they take the orange accent, with dark violet text for contrast. Only in the header —
+   elsewhere red keeps its warning meaning. */
+.main-navigation .os-counter-icon__count--danger {
+  background-color: var(--color-secondary);
+  color: var(--color-secondary-contrast);
+}
+
+/* The video-call header reuses --color-header-background, so its minimize/close buttons
+   (variant="primary" appearance="outline") would draw their icon in the colour of their own
+   background. This one header gets --color-primary-contrast instead. */
+.video-call__header {
+  background: var(--color-primary-contrast) !important;
+}
+
+/* avoid uppercase for user slug */
+span.slug {
+  text-transform: none;
+}

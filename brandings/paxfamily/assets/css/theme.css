@@ -1,0 +1,57 @@
+/*
+ * Runtime theme for paxfamily (paxfamily.social): CSS custom properties, authored as CSS.
+ *
+ * This file is the only source for the theme. When packing the archive the build raises the `:root`
+ * selector below to `:root:root`, so these values outrank the framework defaults regardless of load
+ * order, and it reads `--color-primary` out for the PWA/browser-chrome colour.
+ *
+ * Colours are those of pax.family (its Tailwind palette): deep violet #342268 (`pax-deep`, also its
+ * manifest theme colour), violet #662D91 (`pax-purple`) and orange #F7941D / #F99C25 (`pax-gold`).
+ * Violet carries the app, orange is the accent. The header is the warm cream of the current pax.family
+ * header (#f5ede0, bordered #e0d4c4), with the violet logo and navigation on it.
+ */
+
+/* Gantari, the typeface of pax.family (SIL Open Font License, see ../fonts/OFL.txt). The url() is
+   relative to this stylesheet, which the webapp serves from /branding/<id>/assets/css/. */
+@font-face {
+  font-family: 'Gantari';
+  src: url('../fonts/Gantari-VariableFont_wght.ttf') format('truetype');
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+:root {
+  --color-primary: rgb(52, 34, 104);
+  --color-primary-hover: rgb(102, 45, 145);
+  --color-primary-active: rgb(36, 23, 74);
+  --color-primary-contrast: rgb(255, 255, 255);
+  /* The webapp's own shades of the primary, which default to the framework's greens: generated
+     avatars (-dark behind -inverse initials), link hover (-highlight), own chat bubbles (-light). */
+  --color-primary-dark: rgb(36, 23, 74);
+  --color-primary-highlight: rgb(102, 45, 145);
+  --color-primary-light: rgb(222, 214, 240);
+  --color-primary-inverse: rgb(243, 240, 250);
+  --color-secondary: rgb(247, 148, 29);
+  --color-secondary-hover: rgb(249, 156, 37);
+  --color-secondary-active: rgb(214, 121, 8);
+  /* Dark violet on orange: about 6:1, where white on orange stays near 2.3:1. */
+  --color-secondary-contrast: rgb(52, 34, 104);
+  --color-secondary-inverse: rgb(254, 244, 232);
+  --font-family-heading: 'Gantari', Helvetica, Arial, sans-serif;
+  --font-family-text: 'Gantari', Helvetica, Arial, sans-serif;
+  --color-header-background: rgb(245, 237, 224);
+  --color-header-border: rgb(224, 212, 196);
+  /* The active navigation entry: pax.family marks it orange, but its orange reaches only 2:1 on the
+     cream header. This darker orange keeps the hue at 4.7:1 (WCAG AA). */
+  --color-header-active: rgb(163, 84, 0);
+  --color-donation-bar: var(--color-secondary);
+  /* Info toasts default to --color-secondary — white on orange is hard to read. */
+  --color-toast-blue: var(--color-primary-hover);
+  /* Post ribbons, three clearly separate hues: articles deep violet, events teal (pax.family's
+     side colour, opposite the orange), and the pinned "Meldung" ribbon keeps the framework's
+     orange (--color-warning). */
+  --color-ribbon-article: var(--color-primary);
+  --color-ribbon-article-shadow: rgb(26, 17, 52);
+  --color-ribbon-event: rgb(15, 118, 110);
+  --color-ribbon-event-shadow: rgb(9, 74, 69);
+}
