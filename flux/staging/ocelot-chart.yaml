@@ -1,0 +1,14 @@
+# The ocelot.social charts, straight from its repository. Only the charts are fetched.
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  name: ocelot-social
+  namespace: flux-system
+spec:
+  interval: 10m
+  url: https://github.com/Ocelot-Social-Community/Ocelot-Social
+  ref:
+    branch: master
+  ignore: |
+    /*
+    !/deployment/helm/charts/

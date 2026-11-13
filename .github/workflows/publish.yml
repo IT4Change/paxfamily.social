@@ -2,6 +2,12 @@ name: publish
 
 on:
   push:
+    # flux/ and helmfile/ are deployment configuration, not image input. flux/ is also where Flux
+    # commits the tag it rolls out (flux/staging/images.yaml): building on those commits would make
+    # every rollout trigger the next build.
+    paths-ignore:
+      - 'flux/**'
+      - 'helmfile/**'
   # Rebuilds the images on the newest ocelot.social images of $OCELOT_VERSION without a commit here —
   # what a branch or `master` in .env needs, as their tags move.
   workflow_dispatch:
@@ -17,6 +23,11 @@ jobs:
             file: docker/webapp.Dockerfile
           - name: maintenance
             file: docker/maintenance.Dockerfile
+          # The build stage of the backend: what the reseed job runs (flux/staging/seed.yaml), as
+          # the seed needs tsx and faker, which the runtime image does not ship.
+          - name: backend-seed
+            file: docker/backend.Dockerfile
+            target: build
     runs-on: ubuntu-latest
     env:
       REGISTRY: ghcr.io
@@ -37,7 +48,14 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Read $OCELOT_VERSION from file
-        run: cat .env >> $GITHUB_ENV
+        run: cat .env >> "$GITHUB_ENV"
+      # `<branch>-<run number>-<sha7>`, the tag Flux picks the newest build by (flux/staging/images.yaml).
+      # The run number, not the commit time: a manual rebuild of the same commit on newer
+      # ocelot.social images has to win over the build before it, and it is the same for every image
+      # of one run.
+      - name: Short commit sha
+        id: short
+        run: echo "sha=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
       - name: Extract metadata (tags, labels) for Docker
         id: meta
         uses: docker/metadata-action@70b2cdc6480c1a8b86edf1777157f8f437de2166
@@ -51,6 +69,7 @@ jobs:
             type=ref,event=branch
             type=ref,event=pr
             type=sha
+            type=raw,value=${{ github.ref_name }}-${{ github.run_number }}-${{ steps.short.outputs.sha }},enable=${{ github.ref_type == 'branch' && !contains(github.ref_name, '/') }}
           labels: |
             ocelot-version=${{ env.OCELOT_VERSION }}
       - name: Build and push Docker images
@@ -58,7 +77,8 @@ jobs:
         uses: docker/build-push-action@4f58ea79222b3b9dc2c8bbdd6debcef730109a75
         with:
           file:  ${{ matrix.app.file }}
-          context: ${{ matrix.app.context || '.' }}
+          target: ${{ matrix.app.target }}
+          context: .
           push: true
           build-args: |
               OCELOT_VERSION=${{ env.OCELOT_VERSION }}
@@ -66,6 +86,30 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
 
 
+  # "Check now" to Flux on the staging cluster (flux/staging/receiver.yaml). Only a hint: Flux finds
+  # a new build within minutes anyway, and its ImagePolicy decides what runs. Skipped while the
+  # secrets are not set.
+  notify-flux:
+    runs-on: ubuntu-latest
+    needs: build-and-push-images
+    if: ${{ github.ref == 'refs/heads/master' }}
+    permissions: {}
+    env:
+      FLUX_WEBHOOK_URL: ${{ secrets.FLUX_WEBHOOK_URL }}
+      FLUX_WEBHOOK_TOKEN: ${{ secrets.FLUX_WEBHOOK_TOKEN }}
+    steps:
+      - name: Notify Flux
+        run: |
+          if [ -z "$FLUX_WEBHOOK_URL" ] || [ -z "$FLUX_WEBHOOK_TOKEN" ]; then
+            echo "FLUX_WEBHOOK_URL / FLUX_WEBHOOK_TOKEN not set, Flux finds the build by polling"
+            exit 0
+          fi
+          body="{\"ref\":\"${GITHUB_REF}\",\"sha\":\"${GITHUB_SHA}\"}"
+          signature=$(printf '%s' "$body" | openssl dgst -sha256 -hmac "$FLUX_WEBHOOK_TOKEN" -r | cut -d' ' -f1)
+          curl --fail-with-body --silent --show-error --max-time 30 \
+            -H "Content-Type: application/json" \
+            -H "X-Signature: sha256=${signature}" \
+            -d "$body" "$FLUX_WEBHOOK_URL"
+
 # No deploy from here. The cluster's credentials do not belong on GitHub, not even sops-encrypted:
-# the deploy is meant to be triggered by a webhook to a receiving service that does not exist yet.
-# Until then deploy by hand with helmfile (see README).
+# Flux on the cluster pulls (flux/staging/). Production is still deployed by hand with helmfile.

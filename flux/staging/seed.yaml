@@ -1,0 +1,40 @@
+# Reseeding staging on a schedule: wipes the database and seeds the demo data. Suspended; to
+# switch it on, set `suspend: false` (and the schedule) and push. The backend picks up the new roles
+# and policies by itself within a minute (its periodic cache resync), no restart needed.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: reseed
+  namespace: paxfamily-social-staging
+spec:
+  suspend: true
+  schedule: "0 4 * * 1"
+  timeZone: Europe/Berlin
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 7200
+      template:
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: reseed
+              # The build stage of backend.Dockerfile: the seed needs tsx and faker, which the runtime
+              # image does not ship. Same build as the running backend (images.yaml).
+              image: ghcr.io/it4change/paxfamily.social/backend-seed:sha-4ae6aa2 # {"$imagepolicy": "flux-system:paxfamily-social-staging-seed"}
+              command: ["/bin/sh", "-c", "npm run db:reset && npm run db:seed"]
+              envFrom:
+                # The running backend's configuration: database, S3, Mapbox, …
+                - configMapRef:
+                    name: paxfamily-social-ocelot-backend-env
+                - secretRef:
+                    name: paxfamily-social-ocelot-backend-secret-env
+              env:
+                # `test`: the seed sends no mail. Its users carry made-up addresses on real domains, and
+                # without a reachable mail server the seed would not finish. Can go once the ocelot.social
+                # version in .env contains #10930, which turns mail off in the seed itself.
+                - name: NODE_ENV
+                  value: test
+                - name: PRODUCTION_DB_CLEAN_ALLOW
+                  value: "true"

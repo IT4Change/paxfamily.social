@@ -1,0 +1,39 @@
+# Reseeding staging once, on demand: wipes the database and seeds the demo data. Listed in
+# kustomization.yaml, it runs when pushed. To run it again, raise the number in the name and push:
+# a Job cannot be changed once it exists, so a new name is a new run, and Flux removes the old one.
+#
+# `ssa: IfNotPresent`: Flux creates the Job and then leaves it alone. Without it every new image
+# tag written into this file would try to change the existing Job, which Kubernetes refuses.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: reseed-1
+  namespace: paxfamily-social-staging
+  annotations:
+    kustomize.toolkit.fluxcd.io/ssa: IfNotPresent
+spec:
+  backoffLimit: 0
+  activeDeadlineSeconds: 7200
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: reseed
+          # The build stage of backend.Dockerfile: the seed needs tsx and faker, which the runtime
+          # image does not ship. Same build as the running backend (images.yaml).
+          image: ghcr.io/it4change/paxfamily.social/backend-seed:sha-4ae6aa2 # {"$imagepolicy": "flux-system:paxfamily-social-staging-seed"}
+          command: ["/bin/sh", "-c", "npm run db:reset && npm run db:seed"]
+          envFrom:
+            # The running backend's configuration: database, S3, Mapbox, …
+            - configMapRef:
+                name: paxfamily-social-ocelot-backend-env
+            - secretRef:
+                name: paxfamily-social-ocelot-backend-secret-env
+          env:
+            # `test`: the seed sends no mail. Its users carry made-up addresses on real domains, and
+            # without a reachable mail server the seed would not finish. Can go once the ocelot.social
+            # version in .env contains #10930, which turns mail off in the seed itself.
+            - name: NODE_ENV
+              value: test
+            - name: PRODUCTION_DB_CLEAN_ALLOW
+              value: "true"

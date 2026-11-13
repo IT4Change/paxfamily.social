@@ -32,14 +32,31 @@ bound to `multi-brand-repo`, the branch of
 are the first that bake the `brandings/` layout. Back to `master` once that is merged. The workflow
 appends `.env` to `$GITHUB_ENV`, so it holds plain `KEY=value` lines only, no comments.
 
-A branch tag moves with every push to that branch, but the images here are only rebuilt by a push
-to this repo. To build on its newest state without a commit: Actions → publish → Run workflow. The
-rebuild replaces the images under the same tag (`sha-<commit of this repo>`), so a running deployment
-picks them up by restarting its pods (`pullPolicy: Always`), e.g. `kubectl -n <namespace> rollout
-restart deployment`; `helmfile apply` alone sees no change.
+### Staging: Flux
 
-`helmfile/` deploys them: `default` is the staging environment, `production` paxfamily.social. There
-is no deploy from GitHub: the cluster's credentials do not belong there. A webhook to a receiving
-service is meant to trigger it; until that service exists, deploy by hand
-(`helmfile -e default apply` / `helmfile -e production apply`). E-mail goes out as
-`noreply@paxfamily.social`, which needs SPF and DKIM for that domain.
+Staging (`paxfamily.social.stage.ocelot-social.it4c.org`) is deployed by Flux on the cluster, from
+`flux/staging/` ([IT4Change/flux](https://github.com/IT4Change/flux), `clusters/staging/`). Nothing
+is applied by hand, and no cluster credential is on GitHub.
+
+- **A push to master** builds the images (`publish.yml`), tagged `master-<run number>-<sha7>`. Flux
+  takes the newest of them (`flux/staging/images.yaml`), commits the tag into `flux/staging/` and
+  rolls it out. Pull before you push: those commits are Flux's.
+- **A change under `flux/`** (values, manifests) is rolled out as it is, without a build.
+- **Newer ocelot.social images** on the branch in `.env`: Actions → publish → Run workflow. That
+  build gets a higher run number, so Flux takes it.
+- **Reseeding** (wipes the database): once, by listing `reseed.yaml` in
+  `flux/staging/kustomization.yaml` and pushing; again, by raising the number in its name. On a
+  schedule: `suspend: false` in `flux/staging/seed.yaml`.
+- **Secrets** for staging are `flux/staging/*.sops.yaml`, encrypted to the team and the staging
+  cluster (`.sops.yaml`). `values.sops.yaml` holds the chart's `secrets.*`.
+- **Webhook**: after a build, `publish.yml` tells Flux to look now, if the repo secrets
+  `FLUX_WEBHOOK_URL` and `FLUX_WEBHOOK_TOKEN` are set (`flux/staging/receiver.yaml`). Without them
+  Flux finds the build within five minutes.
+
+`helmfile -e default` must not be applied any more: Flux owns the staging releases now and would
+undo it.
+
+### Production: helmfile
+
+`helmfile -e production apply`, by hand. E-mail goes out as `noreply@paxfamily.social`, which needs
+SPF and DKIM for that domain.

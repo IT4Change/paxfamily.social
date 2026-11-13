@@ -1,0 +1,26 @@
+# "Check now" for the image scan, called by publish.yml once the images are pushed. Without it Flux
+# still finds a new build within the ImageRepository's interval. The token only allows that: it
+# deploys nothing on its own, the ImagePolicy decides.
+#
+# URL: https://deploy.it4c.org + the receiver's path, `kubectl -n flux-system get receiver
+# paxfamily-social-staging -o jsonpath='{.status.webhookPath}'`. Goes into the repo's GitHub secrets
+# FLUX_WEBHOOK_URL (whole URL) and FLUX_WEBHOOK_TOKEN (the token of receiver-token.sops.yaml).
+apiVersion: notification.toolkit.fluxcd.io/v1
+kind: Receiver
+metadata:
+  name: paxfamily-social-staging
+  namespace: flux-system
+spec:
+  type: generic-hmac
+  secretRef:
+    name: paxfamily-social-receiver-token
+  resources:
+    - apiVersion: image.toolkit.fluxcd.io/v1
+      kind: ImageRepository
+      name: paxfamily-social-backend
+    - apiVersion: image.toolkit.fluxcd.io/v1
+      kind: ImageRepository
+      name: paxfamily-social-backend-seed
+    - apiVersion: source.toolkit.fluxcd.io/v1
+      kind: GitRepository
+      name: paxfamily-social

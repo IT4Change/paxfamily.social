@@ -1,0 +1,16 @@
+# The staging deployment of paxfamily.social, applied by Flux on the staging cluster
+# (IT4Change/flux, clusters/staging/paxfamily-social.yaml). Every Flux object lives in flux-system;
+# the workloads go to paxfamily-social-staging through the HelmReleases' targetNamespace.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ocelot-chart.yaml
+  - values.sops.yaml
+  - neo4j.yaml
+  - ocelot.yaml
+  - images.yaml
+  - receiver.yaml
+  - receiver-token.sops.yaml
+  - seed.yaml
+  # Reseeding on demand: uncomment, push; to reseed again, raise the number in its name (reseed.yaml).
+  # - reseed.yaml
