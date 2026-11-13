@@ -46,7 +46,8 @@ is applied by hand, and no cluster credential is on GitHub.
   build gets a higher run number and is rolled out the same way.
 - **Reseeding** (wipes the database): once, by listing `reseed.yaml` in
   `flux/staging/kustomization.yaml` and pushing; again, by raising the number in its name. On a
-  schedule: `suspend: false` in `flux/staging/seed.yaml`.
+  schedule: `suspend: false` in `flux/staging/seed.yaml`. Right now, with cluster access:
+  `scripts/reseed.sh` (`--help`), which runs a Job off the suspended CronJob and follows its log.
 - **Secrets** for staging are `flux/staging/*.sops.yaml`, encrypted to the team and the staging
   cluster (`.sops.yaml`). `values.sops.yaml` holds the chart's `secrets.*`.
 - **Webhook**: after the tag commit, `publish.yml` tells Flux to look now, if the repo secrets
