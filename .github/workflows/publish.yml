@@ -1,6 +1,10 @@
 name: publish
 
-on: push
+on:
+  push:
+  # Rebuilds the images on the newest ocelot.social images of $OCELOT_VERSION without a commit here —
+  # what a branch or `master` in .env needs, as their tags move.
+  workflow_dispatch:
 
 jobs:
   build-and-push-images:
@@ -61,27 +65,7 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
 
-  deploy-to-kubernetes:
-    runs-on: ubuntu-latest
-    if: ${{ startsWith(github.ref, 'refs/tags/') }}
-    needs: build-and-push-images
-    steps:
-      - uses: mdgreenwald/mozilla-sops-action@d9714e521cbaecdae64a89d2fdd576dd2aa97056 # v1.6.0
-      - uses: actions/checkout@eef61447b9ff4aafe5dcd4e0bbf5d482be7e7871 # v4.1.7
-      - run: |
-          mkdir -p ~/.config/sops/age
-          echo $SOPS_KEY | base64 --decode > ~/.config/sops/age/keys.txt
-        env:
-          SOPS_KEY: ${{ secrets.SOPS_KEY }}
-      - run: |
-          mkdir -p ~/.kube
-          sops decrypt ./helmfile/secrets/kubeconfig > ~/.kube/config
-          chmod 600 ~/.kube/config
-      - uses: helmfile/helmfile-action@80fbb6408b98822310f94d8d1321a2cacf87f78f #v1.9.2
-        with:
-          helmfile-args: apply
-          helmfile-workdirectory: ./helmfile
-          helm-plugins: >
-            https://github.com/databus23/helm-diff,
-            https://github.com/jkroepke/helm-secrets,
-            https://github.com/aslafy-z/helm-git
+
+# No deploy from here. The cluster's credentials do not belong on GitHub, not even sops-encrypted:
+# the deploy is meant to be triggered by a webhook to a receiving service that does not exist yet.
+# Until then deploy by hand with helmfile (see README).

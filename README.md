@@ -26,6 +26,20 @@ Build a brand archive locally: `npm run build` inside its folder (writes `dist/`
 
 ## Deployment
 
-`OCELOT_VERSION` in `.env` selects the ocelot.social images the brand images are built on.
-`helmfile/` deploys them: `default` is the staging environment, `production` paxfamily.social. E-mail
-goes out as `noreply@paxfamily.social`, which needs SPF and DKIM for that domain.
+`OCELOT_VERSION` in `.env` selects the ocelot.social images the brand images are built on. It is
+bound to `multi-brand-repo`, the branch of
+[ocelot.social#10912](https://github.com/Ocelot-Social-Community/Ocelot-Social/pull/10912): its images
+are the first that bake the `brandings/` layout. Back to `master` once that is merged. The workflow
+appends `.env` to `$GITHUB_ENV`, so it holds plain `KEY=value` lines only, no comments.
+
+A branch tag moves with every push to that branch, but the images here are only rebuilt by a push
+to this repo. To build on its newest state without a commit: Actions → publish → Run workflow. The
+rebuild replaces the images under the same tag (`sha-<commit of this repo>`), so a running deployment
+picks them up by restarting its pods (`pullPolicy: Always`), e.g. `kubectl -n <namespace> rollout
+restart deployment`; `helmfile apply` alone sees no change.
+
+`helmfile/` deploys them: `default` is the staging environment, `production` paxfamily.social. There
+is no deploy from GitHub: the cluster's credentials do not belong there. A webhook to a receiving
+service is meant to trigger it; until that service exists, deploy by hand
+(`helmfile -e default apply` / `helmfile -e production apply`). E-mail goes out as
+`noreply@paxfamily.social`, which needs SPF and DKIM for that domain.
