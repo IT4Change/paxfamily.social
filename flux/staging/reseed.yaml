@@ -22,7 +22,7 @@ spec:
         - name: reseed
           # The build stage of backend.Dockerfile: the seed needs tsx and faker, which the runtime
           # image does not ship. Same build as the running backend (ocelot.yaml).
-          image: ghcr.io/it4change/paxfamily.social/backend-seed:master-4-bd5f2bb # image tag: written by publish.yml
+          image: ghcr.io/it4change/paxfamily.social/backend-seed:master-5-b56bcdf # image tag: written by publish.yml
           command: ["/bin/sh", "-c", "npm run db:reset && npm run db:seed"]
           envFrom:
             # The running backend's configuration: database, S3, Mapbox, …
