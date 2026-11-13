@@ -48,6 +48,10 @@ is applied by hand, and no cluster credential is on GitHub.
   `flux/staging/kustomization.yaml` and pushing; again, by raising the number in its name. On a
   schedule: `suspend: false` in `flux/staging/seed.yaml`. Right now, with cluster access:
   `scripts/reseed.sh` (`--help`), which runs a Job off the suspended CronJob and follows its log.
+  Only an instance whose backend says `DB_WIPE_ALLOWED: "true"` is wiped: staging
+  (`flux/staging/ocelot.yaml`, helmfile `default`). Production says `"false"`, the jobs check it
+  before they wipe and never set it themselves, and `scripts/reseed.sh` refuses any namespace with
+  `production` in it before it asks the cluster anything.
 - **Secrets** for staging are `flux/staging/*.sops.yaml`, encrypted to the team and the staging
   cluster (`.sops.yaml`). `values.sops.yaml` holds the chart's `secrets.*`.
 - **Webhook**: after the tag commit, `publish.yml` tells Flux to look now, if the repo secrets

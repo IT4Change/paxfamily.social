@@ -41,7 +41,9 @@ spec:
         repository: ghcr.io/it4change/paxfamily.social/backend
       env:
         NEO4J_URI: bolt://ocelot-neo4j-neo4j:7687
-        PRODUCTION_DB_CLEAN_ALLOW: "false"
+        # Staging may be wiped and reseeded (seed.yaml, reseed.yaml, scripts/reseed.sh). The jobs read
+        # it from the backend's config map, never set it themselves.
+        DB_WIPE_ALLOWED: "true"
         PUBLIC_REGISTRATION: "false"
         INVITE_REGISTRATION: "true"
         CATEGORIES_ACTIVE: "false"

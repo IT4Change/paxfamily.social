@@ -11,6 +11,10 @@
 #   scripts/reseed.sh --images picsum                # SEED_IMAGES for this run only
 #   scripts/reseed.sh -y                             # no confirmation (scripts, CI)
 #
+# Refuses a production namespace (`*production*`) outright, and any instance whose backend config map
+# does not say DB_WIPE_ALLOWED=true (helmfile/environments/, flux/staging/ocelot.yaml). The Job
+# checks that switch once more before it wipes.
+#
 # Needs kubectl with access to the cluster, and jq when --images is given.
 set -euo pipefail
 
@@ -22,7 +26,7 @@ assume_yes=false
 follow=true
 
 usage() {
-  sed -n '2,14p' "$0" | sed 's/^# \{0,1\}//'
+  sed -n '2,18p' "$0" | sed 's/^# \{0,1\}//'
   exit "${1:-0}"
 }
 
@@ -44,6 +48,15 @@ case "$images" in
   *) echo "--images must be local or picsum, not \"$images\"" >&2; exit 1 ;;
 esac
 
+# Before anything touches the cluster: no flag, no config map and no confirmation make this run on
+# production.
+case "$namespace" in
+  *production*)
+    echo "$namespace is a production namespace: it is never reseeded" >&2
+    exit 1
+    ;;
+esac
+
 kube=(kubectl --namespace "$namespace")
 [ -n "$context" ] && kube+=(--context "$context")
 
@@ -51,6 +64,20 @@ shown_context=${context:-$(kubectl config current-context)}
 
 if ! "${kube[@]}" get cronjob "$cronjob" >/dev/null; then
   echo "no CronJob $cronjob in $namespace (context $shown_context)" >&2
+  exit 1
+fi
+
+# The instance has to allow it, not this script: the switch lives in the backend's config map, the
+# one the Job reads as well.
+config_map=$("${kube[@]}" get cronjob "$cronjob" \
+  -o jsonpath='{.spec.jobTemplate.spec.template.spec.containers[0].envFrom[*].configMapRef.name}')
+wipe_allowed=
+for name in $config_map; do
+  value=$("${kube[@]}" get configmap "$name" -o jsonpath='{.data.DB_WIPE_ALLOWED}')
+  [ -n "$value" ] && wipe_allowed=$value
+done
+if [ "$wipe_allowed" != true ]; then
+  echo "DB_WIPE_ALLOWED is not true in the config map of $namespace (${config_map:-none}): this instance may not be wiped" >&2
   exit 1
 fi
 

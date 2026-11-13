@@ -16,7 +16,9 @@ backend:
     repository:  ghcr.io/{{ .StateValues.deploy.GITHUB_REPOSITORY | lower }}/backend
   env:
     NEO4J_URI: "bolt://ocelot-neo4j-neo4j:7687"
-    PRODUCTION_DB_CLEAN_ALLOW: {{ .StateValues.ocelot.options.PRODUCTION_DB_CLEAN_ALLOW | quote }}
+    # Whether db:reset / db:seed may wipe this instance (environments/*.yaml.gotmpl). The reseed jobs
+    # read it from here, never set it themselves.
+    DB_WIPE_ALLOWED: {{ .StateValues.ocelot.options.DB_WIPE_ALLOWED | quote }}
     PUBLIC_REGISTRATION: {{ .StateValues.ocelot.options.PUBLIC_REGISTRATION | quote }}
     INVITE_REGISTRATION: {{ .StateValues.ocelot.options.INVITE_REGISTRATION | quote }}
     BADGES_ENABLED: {{ .StateValues.ocelot.options.BADGES_ENABLED | quote }}

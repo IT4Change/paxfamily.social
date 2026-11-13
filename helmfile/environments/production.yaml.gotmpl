@@ -11,7 +11,8 @@ deploy:
 
 ocelot:
     options:
-        PRODUCTION_DB_CLEAN_ALLOW: "false"
+        # Production is never wiped: db:reset and db:seed refuse, and so does every reseed job.
+        DB_WIPE_ALLOWED: "false"
         PUBLIC_REGISTRATION: "true"
         INVITE_REGISTRATION: "true"
         CATEGORIES_ACTIVE: "true"

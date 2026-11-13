@@ -11,7 +11,8 @@ deploy:
 
 ocelot:
     options:
-        PRODUCTION_DB_CLEAN_ALLOW: "false"
+        # Staging may be wiped and reseeded (flux/staging/seed.yaml, scripts/reseed.sh).
+        DB_WIPE_ALLOWED: "true"
         PUBLIC_REGISTRATION: "false"
         INVITE_REGISTRATION: "true"
         CATEGORIES_ACTIVE: "false"
