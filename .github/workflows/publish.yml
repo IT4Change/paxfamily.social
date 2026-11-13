@@ -2,9 +2,10 @@ name: publish
 
 on:
   push:
-    # flux/ and helmfile/ are deployment configuration, not image input. flux/ is also where Flux
-    # commits the tag it rolls out (flux/staging/images.yaml): building on those commits would make
-    # every rollout trigger the next build.
+    # flux/ and helmfile/ are deployment configuration, not image input. flux/ is also where the
+    # job roll-out-staging commits the tag it rolls out: building on those commits would make every
+    # rollout trigger the next build (GITHUB_TOKEN pushes trigger nothing anyway, a person's edit of
+    # flux/ would).
     paths-ignore:
       - 'flux/**'
       - 'helmfile/**'
@@ -49,7 +50,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Read $OCELOT_VERSION from file
         run: cat .env >> "$GITHUB_ENV"
-      # `<branch>-<run number>-<sha7>`, the tag Flux picks the newest build by (flux/staging/images.yaml).
+      # `<branch>-<run number>-<sha7>`, the tag roll-out-staging writes into flux/staging/.
       # The run number, not the commit time: a manual rebuild of the same commit on newer
       # ocelot.social images has to win over the build before it, and it is the same for every image
       # of one run.
@@ -86,22 +87,57 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
 
 
-  # "Check now" to Flux on the staging cluster (flux/staging/receiver.yaml). Only a hint: Flux finds
-  # a new build within minutes anyway, and its ImagePolicy decides what runs. Skipped while the
-  # secrets are not set.
-  notify-flux:
+  # Staging runs the newest build of master: write its tag into flux/staging/ and tell Flux. The
+  # commit IS the rollout — Flux on the cluster applies what the repo says, and needs no credential
+  # for this public repo. One at a time and never backwards: a run older than the tag already there
+  # (an older run finishing late) leaves it alone.
+  roll-out-staging:
     runs-on: ubuntu-latest
     needs: build-and-push-images
     if: ${{ github.ref == 'refs/heads/master' }}
-    permissions: {}
+    concurrency:
+      group: roll-out-staging
+      cancel-in-progress: false
+    permissions:
+      contents: write
     env:
       FLUX_WEBHOOK_URL: ${{ secrets.FLUX_WEBHOOK_URL }}
       FLUX_WEBHOOK_TOKEN: ${{ secrets.FLUX_WEBHOOK_TOKEN }}
     steps:
+      - uses: actions/checkout@eef61447b9ff4aafe5dcd4e0bbf5d482be7e7871 # v4.1.7
+        with:
+          ref: master
+      - name: Write the image tag
+        run: |
+          tag="master-${GITHUB_RUN_NUMBER}-${GITHUB_SHA::7}"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          # A push of somebody else in between makes ours fail: start over from the new master.
+          for _ in 1 2 3; do
+            git fetch --quiet origin master
+            git reset --quiet --hard origin/master
+            current=$(grep -m1 -oE 'master-[0-9]+-[0-9a-f]{7}' flux/staging/ocelot.yaml || true)
+            current_run=${current#master-}
+            current_run=${current_run%%-*}
+            if [ -n "$current_run" ] && [ "$current_run" -ge "$GITHUB_RUN_NUMBER" ]; then
+              echo "staging already runs ${current}, not going back to ${tag}"
+              exit 0
+            fi
+            sed -i -E "/# image tag: written by publish.yml/ s/(master-[0-9]+-[0-9a-f]{7}|sha-[0-9a-f]{7})/${tag}/" flux/staging/*.yaml
+            git commit --quiet -am "chore(staging): roll out ${tag}"
+            if git push --quiet origin HEAD:master; then
+              echo "rolled out ${tag}"
+              exit 0
+            fi
+          done
+          echo "::error::could not push the image tag after three attempts"
+          exit 1
+      # Only a hint: Flux finds the commit within a minute anyway. Skipped while the secrets are not
+      # set.
       - name: Notify Flux
         run: |
           if [ -z "$FLUX_WEBHOOK_URL" ] || [ -z "$FLUX_WEBHOOK_TOKEN" ]; then
-            echo "FLUX_WEBHOOK_URL / FLUX_WEBHOOK_TOKEN not set, Flux finds the build by polling"
+            echo "FLUX_WEBHOOK_URL / FLUX_WEBHOOK_TOKEN not set, Flux finds the commit by polling"
             exit 0
           fi
           body="{\"ref\":\"${GITHUB_REF}\",\"sha\":\"${GITHUB_SHA}\"}"
@@ -111,5 +147,6 @@ jobs:
             -H "X-Signature: sha256=${signature}" \
             -d "$body" "$FLUX_WEBHOOK_URL"
 
-# No deploy from here. The cluster's credentials do not belong on GitHub, not even sops-encrypted:
-# Flux on the cluster pulls (flux/staging/). Production is still deployed by hand with helmfile.
+# No cluster access from here, and no GitHub credential in the cluster: the workflow only writes to
+# this repo, Flux on the cluster reads it (flux/staging/). Production is still deployed by hand with
+# helmfile.

@@ -38,20 +38,21 @@ Staging (`paxfamily.social.stage.ocelot-social.it4c.org`) is deployed by Flux on
 `flux/staging/` ([IT4Change/flux](https://github.com/IT4Change/flux), `clusters/staging/`). Nothing
 is applied by hand, and no cluster credential is on GitHub.
 
-- **A push to master** builds the images (`publish.yml`), tagged `master-<run number>-<sha7>`. Flux
-  takes the newest of them (`flux/staging/images.yaml`), commits the tag into `flux/staging/` and
-  rolls it out. Pull before you push: those commits are Flux's.
+- **A push to master** builds the images (`publish.yml`), tagged `master-<run number>-<sha7>`. The
+  job `roll-out-staging` then commits that tag into `flux/staging/` and tells Flux, which rolls it
+  out. Pull before you push: those commits are the workflow's.
 - **A change under `flux/`** (values, manifests) is rolled out as it is, without a build.
 - **Newer ocelot.social images** on the branch in `.env`: Actions → publish → Run workflow. That
-  build gets a higher run number, so Flux takes it.
+  build gets a higher run number and is rolled out the same way.
 - **Reseeding** (wipes the database): once, by listing `reseed.yaml` in
   `flux/staging/kustomization.yaml` and pushing; again, by raising the number in its name. On a
   schedule: `suspend: false` in `flux/staging/seed.yaml`.
 - **Secrets** for staging are `flux/staging/*.sops.yaml`, encrypted to the team and the staging
   cluster (`.sops.yaml`). `values.sops.yaml` holds the chart's `secrets.*`.
-- **Webhook**: after a build, `publish.yml` tells Flux to look now, if the repo secrets
+- **Webhook**: after the tag commit, `publish.yml` tells Flux to look now, if the repo secrets
   `FLUX_WEBHOOK_URL` and `FLUX_WEBHOOK_TOKEN` are set (`flux/staging/receiver.yaml`). Without them
-  Flux finds the build within five minutes.
+  Flux finds the commit within a minute. The cluster holds no credential for GitHub: the repo is
+  public and Flux only reads it.
 
 `helmfile -e default` must not be applied any more: Flux owns the staging releases now and would
 undo it.

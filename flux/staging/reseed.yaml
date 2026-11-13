@@ -3,7 +3,8 @@
 # a Job cannot be changed once it exists, so a new name is a new run, and Flux removes the old one.
 #
 # `ssa: IfNotPresent`: Flux creates the Job and then leaves it alone. Without it every new image
-# tag written into this file would try to change the existing Job, which Kubernetes refuses.
+# tag publish.yml writes into this file would try to change the existing Job, which Kubernetes
+# refuses.
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -20,8 +21,8 @@ spec:
       containers:
         - name: reseed
           # The build stage of backend.Dockerfile: the seed needs tsx and faker, which the runtime
-          # image does not ship. Same build as the running backend (images.yaml).
-          image: ghcr.io/it4change/paxfamily.social/backend-seed:sha-4ae6aa2 # {"$imagepolicy": "flux-system:paxfamily-social-staging-seed"}
+          # image does not ship. Same build as the running backend (ocelot.yaml).
+          image: ghcr.io/it4change/paxfamily.social/backend-seed:master-4-bd5f2bb # image tag: written by publish.yml
           command: ["/bin/sh", "-c", "npm run db:reset && npm run db:seed"]
           envFrom:
             # The running backend's configuration: database, S3, Mapbox, …

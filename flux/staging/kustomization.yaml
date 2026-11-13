@@ -8,7 +8,6 @@ resources:
   - values.sops.yaml
   - neo4j.yaml
   - ocelot.yaml
-  - images.yaml
   - receiver.yaml
   - receiver-token.sops.yaml
   - seed.yaml

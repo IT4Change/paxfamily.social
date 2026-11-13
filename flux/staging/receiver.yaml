@@ -1,6 +1,6 @@
-# "Check now" for the image scan, called by publish.yml once the images are pushed. Without it Flux
-# still finds a new build within the ImageRepository's interval. The token only allows that: it
-# deploys nothing on its own, the ImagePolicy decides.
+# "Check now" for this repo, called by publish.yml once it has committed a new image tag to
+# flux/staging/. Without it Flux still finds the commit within the GitRepository's interval. The
+# token only allows that: what runs is what the repo says.
 #
 # URL: https://deploy.it4c.org + the receiver's path, `kubectl -n flux-system get receiver
 # paxfamily-social-staging -o jsonpath='{.status.webhookPath}'`. Goes into the repo's GitHub secrets
@@ -15,12 +15,6 @@ spec:
   secretRef:
     name: paxfamily-social-receiver-token
   resources:
-    - apiVersion: image.toolkit.fluxcd.io/v1
-      kind: ImageRepository
-      name: paxfamily-social-backend
-    - apiVersion: image.toolkit.fluxcd.io/v1
-      kind: ImageRepository
-      name: paxfamily-social-backend-seed
     - apiVersion: source.toolkit.fluxcd.io/v1
       kind: GitRepository
       name: paxfamily-social
