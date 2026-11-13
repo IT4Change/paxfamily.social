@@ -44,3 +44,9 @@ spec:
                 # version in .env contains #10930, which turns mail off in the seed itself.
                 - name: NODE_ENV
                   value: test
+                # Set by the chart on the backend's container, not in its config map, so not in envFrom
+                # above. The config requires IMAGOR_PUBLIC_URL at load, and the seed refuses to start without it.
+                - name: IMAGOR_PUBLIC_URL
+                  value: https://paxfamily.social.stage.ocelot-social.it4c.org/imagor
+                - name: CLIENT_URI
+                  value: https://paxfamily.social.stage.ocelot-social.it4c.org
