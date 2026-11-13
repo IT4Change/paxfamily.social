@@ -10,8 +10,15 @@ spec:
   releaseName: ocelot-neo4j
   targetNamespace: paxfamily-social-staging
   storageNamespace: paxfamily-social-staging
+  # No waiting for readiness, as helmfile did not wait either. The chart's backups claim is mounted by
+  # no workload, so on a WaitForFirstConsumer storage class (hcloud-volumes) it stays Pending for
+  # good, and a waiting install or upgrade times out on it every time. Nothing needs the wait: the
+  # backend waits for the database itself (its wait-db init container).
   install:
     createNamespace: true
+    disableWait: true
+  upgrade:
+    disableWait: true
   chart:
     spec:
       chart: ./deployment/helm/charts/ocelot-neo4j
